@@ -1,4 +1,5 @@
 const model = require("../models/user");
+const courseModel = require("../models/course");
 const queryModel = require("../models/query");
 const myCoursesModel = require("../models/myCourses");
 const orderModel = require("../models/order");
@@ -7,7 +8,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const Razorpay = require("razorpay");
 
-const checkUser = (req, res) => res.json({ ok: true, userId: req.user.id });
+const checkUser = (req, res) => res.json({ ok: true, user: req.user });
 
 const reg = async (req, res) => {
   try {
@@ -30,8 +31,22 @@ const reg = async (req, res) => {
       email: email,
       pass: hashedPassword,
     });
-
     await record.save();
+
+    const token = jwt.sign(
+      { ...isEmailExists["_doc"] },
+      process.env.JWT_SECRET_KEY,
+      {
+        expiresIn: "7d",
+      },
+    );
+
+    await res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.ENV === "prod",
+      sameSite: process.env.ENV === "prod" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
     return res.json({ ok: true, message: "User registered successfully" });
   } catch (error) {
     console.error("Registration error:", error);
@@ -54,7 +69,7 @@ const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: emailExists["_id"], role: emailExists.role },
+      { ...emailExists["_doc"] },
       process.env.JWT_SECRET_KEY,
       {
         expiresIn: "7d",
@@ -160,7 +175,7 @@ const checkout = async (req, res) => {
 
 const verifyPayment = async (req, res) => {
   try {
-    const { amount, orderId, paymentId, signature } = req.body;
+    const { amount, orderId, paymentId, signature, courseId } = req.body;
     const userId = req.user.id;
 
     const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_SECRET_KEY);
@@ -176,6 +191,25 @@ const verifyPayment = async (req, res) => {
         status: "paid",
       });
       await rec.save();
+
+      const isCourseExists = await myCoursesModel.findOne({ userId });
+      if (isCourseExists) {
+        isCourseExists.userId = userId;
+        isCourseExists.myCourses = courseId;
+        await isCourseExists.save();
+      } else {
+        const record = new myCoursesModel({
+          userId,
+          myCourses: courseId,
+        });
+        await record.save();
+      }
+
+      const course = await courseModel.findById(courseId);
+      if (course) {
+        course.students += 1;
+        await course.save();
+      }
 
       return res.json({ ok: true, message: "Payment Success" });
     } else {

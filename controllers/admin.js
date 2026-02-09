@@ -7,8 +7,15 @@ const checkAdmin = (req, res) => res.json({ ok: true });
 
 const addCourse = async (req, res) => {
   try {
-    const { pname, price, category } = req.body;
-    if (!pname || !price || !category || !req.file) {
+    const { title, price, category, instructor, duration } = req.body;
+    if (
+      !title ||
+      !price ||
+      !category ||
+      !req.file ||
+      !instructor ||
+      !duration
+    ) {
       return res.json({ ok: false, message: "All fields are required!" });
     }
     const { buffer, originalname } = req.file;
@@ -20,11 +27,12 @@ const addCourse = async (req, res) => {
     });
 
     const record = new courseModel({
-      pname: pname,
+      title: title,
+      instructor: instructor,
       price: price,
-      category: category,
-      status: "In Stock",
+      duration: duration,
       pimage: uploadImage.url,
+      category: category,
     });
     await record.save();
     return res.json({ ok: true, message: "Course added successfully" });
@@ -72,19 +80,40 @@ const getOneCourse = async (req, res) => {
 const editCourse = async (req, res) => {
   try {
     const { id } = req.params;
-    const { pname, price, category, status } = req.body;
-    if (!pname || !price || !category || !status) {
+    const { title, price, category, instructor, duration } = req.body;
+    if (!title || !price || !category || !instructor || !duration) {
       return res.json({ ok: false, message: "All fields are required" });
     }
 
-    const isUpdated = await courseModel.findByIdAndUpdate(id, {
-      $set: {
-        pname: pname,
-        price: price,
-        category: category,
-        status: status,
-      },
-    });
+    let isUpdated;
+    if (req.file) {
+      const { buffer, originalname } = req.file;
+      const uploadImage = await imageKit.upload({
+        file: buffer,
+        fileName: `${Date.now()}-${originalname}`,
+        folder: "/courses",
+      });
+      isUpdated = await courseModel.findByIdAndUpdate(id, {
+        $set: {
+          pimage: uploadImage.url,
+          title: title,
+          instructor: instructor,
+          price: price,
+          duration: duration,
+          category: category,
+        },
+      });
+    } else {
+      isUpdated = await courseModel.findByIdAndUpdate(id, {
+        $set: {
+          title: title,
+          instructor: instructor,
+          price: price,
+          duration: duration,
+          category: category,
+        },
+      });
+    }
 
     if (!isUpdated) {
       return res.json({ ok: false, message: "Cannot update this course" });
@@ -125,7 +154,7 @@ const getOneQuery = async (req, res) => {
     if (!record) {
       return res.json({ ok: false, message: "Cannot find query" });
     }
-    return res.json({ ok: true, data: record });
+    return res.json({ ok: true, data: record, from: process.env.ADMIN_EMAIL });
   } catch (error) {
     return res.json({ ok: false, message: "Internal server error" });
   }
@@ -151,16 +180,14 @@ const queryReply = async (req, res) => {
     }
 
     const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
+      service: "gmail",
       auth: {
         user: process.env.ADMIN_EMAIL,
         pass: process.env.SMTP_PASS,
       },
     });
     const info = await transporter.sendMail({
-      from: `"ShopBag" <${process.env.ADMIN_EMAIL}>`,
+      from: `"SkillNest" <${process.env.ADMIN_EMAIL}>`,
       to: to,
       subject: sub,
       text: reply,
@@ -172,6 +199,7 @@ const queryReply = async (req, res) => {
     await queryModel.findByIdAndUpdate(qid, { status: "Replied" });
     return res.json({ ok: true, message: "Successfully sent" });
   } catch (error) {
+    console.log(error);
     res.json({ ok: false, message: "Internal server error" });
   }
 };

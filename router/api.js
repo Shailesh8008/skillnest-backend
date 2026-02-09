@@ -12,19 +12,20 @@ apiRouter.post(
   auth,
   adminAuth,
   uploads.single("pimage"),
-  adminController.addCourse
+  adminController.addCourse,
 );
 apiRouter.delete(
   "/api/deletecourse/:id",
   auth,
   adminAuth,
-  adminController.deleteCourse
+  adminController.deleteCourse,
 );
 apiRouter.post(
   "/api/editcourse/:id",
   auth,
   adminAuth,
-  adminController.editCourse
+  uploads.single("pimage"),
+  adminController.editCourse,
 );
 apiRouter.get("/api/getcourses", adminController.getCourses);
 apiRouter.get("/api/getcourse/:id", adminController.getOneCourse);
@@ -34,19 +35,19 @@ apiRouter.delete(
   "/api/deletequery/:qid",
   auth,
   adminAuth,
-  adminController.deleteQuery
+  adminController.deleteQuery,
 );
 apiRouter.get(
   "/api/updatestatus/:qid",
   auth,
   adminAuth,
-  adminController.updateQuery
+  adminController.updateQuery,
 );
 apiRouter.post(
   "/api/queryreply/:qid",
   auth,
   adminAuth,
-  adminController.queryReply
+  adminController.queryReply,
 );
 apiRouter.get("/api/checkadmin", auth, adminAuth, adminController.checkAdmin);
 apiRouter.delete("/api/logout", auth, userController.logout);
