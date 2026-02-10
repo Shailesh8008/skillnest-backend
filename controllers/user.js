@@ -33,13 +33,9 @@ const reg = async (req, res) => {
     });
     await record.save();
 
-    const token = jwt.sign(
-      { ...isEmailExists["_doc"] },
-      process.env.JWT_SECRET_KEY,
-      {
-        expiresIn: "7d",
-      },
-    );
+    const token = jwt.sign({ ...record["_doc"] }, process.env.JWT_SECRET_KEY, {
+      expiresIn: "7d",
+    });
 
     await res.cookie("token", token, {
       httpOnly: true,
@@ -153,15 +149,22 @@ const checkout = async (req, res) => {
 
   try {
     const { amount, currency, receipt } = req.body;
-    const { id } = req.user;
-    const { fname, lname, email } = await model.findById(id);
+    const userId = req.user.id || req.user._id;
+    const user = await model.findById(userId);
+
+    if (!user) {
+      return res.json({ ok: false, message: "User not found" });
+    }
+
+    const { fname, lname, email } = user;
+
     const order = await instance.orders.create({
       amount: amount * 100,
       currency,
       receipt,
       notes: {
         name: fname.concat(" ", lname),
-        userId: id,
+        userId: userId,
       },
     });
     if (!order) {
@@ -169,6 +172,7 @@ const checkout = async (req, res) => {
     }
     return res.json({ ok: true, data: order, email });
   } catch (error) {
+    console.log(error);
     res.json({ ok: false, message: "Internal server error" });
   }
 };
