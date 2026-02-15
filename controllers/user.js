@@ -112,18 +112,34 @@ const query = async (req, res) => {
 const enroll = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
-    const { courseData } = req.body;
+    const { courseId } = req.body;
     const isCourseExists = await myCoursesModel.findOne({ userId });
+
     if (isCourseExists) {
-      isCourseExists.userId = userId;
-      isCourseExists.myCourses = courseData;
-      await isCourseExists.save();
+      let currentCourses = [];
+      if (Array.isArray(isCourseExists.myCourses)) {
+        currentCourses = isCourseExists.myCourses;
+      } else if (isCourseExists.myCourses) {
+        currentCourses = [isCourseExists.myCourses];
+      }
+
+      if (!currentCourses.includes(courseId)) {
+        currentCourses.push(courseId);
+        isCourseExists.myCourses = currentCourses;
+        await isCourseExists.save();
+      }
     } else {
       const record = new myCoursesModel({
         userId,
-        myCourses: courseData,
+        myCourses: [courseId],
       });
       await record.save();
+    }
+
+    const course = await courseModel.findById(courseId);
+    if (course) {
+      course.students += 1;
+      await course.save();
     }
     return res.json({ ok: true });
   } catch (error) {
