@@ -11,7 +11,7 @@ apiRouter.post(
   "/api/addcourse",
   auth,
   adminAuth,
-  uploads.single("pimage"),
+  uploads.any(),
   adminController.addCourse,
 );
 apiRouter.delete(
@@ -24,7 +24,7 @@ apiRouter.post(
   "/api/editcourse/:id",
   auth,
   adminAuth,
-  uploads.single("pimage"),
+  uploads.any(),
   adminController.editCourse,
 );
 apiRouter.get("/api/getcourses", adminController.getCourses);
